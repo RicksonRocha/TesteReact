@@ -1,56 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/16/solid";
+import { ProductsViewProps } from "./products.types";
 
-interface Product {
-  name: string;
-  image: string;
-  model: string;
-  treadwear: number;
-  traction: string;
-  temperature: string;
-  pattern: string;
-  loadIndex: string;
-  speedRating: string;
-  noise: number;
-  rollingResistance: string;
-  wetGrip: string;
-  cars: string[];
-}
-
-export default function Products() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState<string>("");
-
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("/api/products");
-        const data: Product[] = await res.json();
-        setProducts(data);
-      } catch (error) {
-        console.error("Erro ao buscar produtos:", error);
-      }
-    }
-    fetchProducts();
-  }, []);
-
-  const filteredProducts = products.filter((product) => {
-    if (!search.trim()) return true;
-
-    const terms = search.toLowerCase().split(/\s+/);
-
-    return terms.every((term) => {
-      const inName = product.name.toLowerCase().includes(term);
-      const inModel = product.model.toLowerCase().includes(term);
-      const inCars = product.cars.some((car) =>
-        car.toLowerCase().includes(term)
-      );
-      return inName || inModel || inCars;
-    });
-  });
-
+export const ProductsView = (props: ProductsViewProps) => {
+  const { search, handleSearch, filteredProducts } = props;
   return (
     <div className="w-full flex justify-center items-center flex-col h-full px-4 py-6">
       <form
@@ -71,7 +26,7 @@ export default function Products() {
               placeholder="Pesquisar produtos"
               className="block w-full rounded-md bg-white py-1.5 pl-10 pr-3 text-base text-gray-900 outline outline-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-600 sm:text-sm"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearch}
               data-testid="search-input"
             />
             <MagnifyingGlassIcon
@@ -145,4 +100,4 @@ export default function Products() {
       </div>
     </div>
   );
-}
+};
