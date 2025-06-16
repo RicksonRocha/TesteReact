@@ -1,43 +1,59 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Product } from "./products.types";
+import { FormData, Product } from "./products.types";
+import { schema } from "./products.schema";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useQuery } from "@tanstack/react-query";
 
 export const ProductsModel = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState<string>("");
+  const [localSearch, setLocalSearch] = useState("");
+  const methods = useForm<FormData>({
+    resolver: yupResolver(schema),
+    defaultValues: { search: "" },
+  });
+
+  const { watch, setValue } = methods;
+
+  const search = watch("search");
+
+  const { data: products, isLoading } = useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: () => fetch("/api/products").then((res) => res.json()),
+  });
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
+    setValue("search", e.target.value);
+    if (e.target.value === "") {
+      setLocalSearch("");
+    }
   };
 
-  const filteredProducts = products.filter((product) => {
-    if (!search.trim()) return true;
+  const onSubmit = (data: FormData) => {
+    setLocalSearch(data.search ?? "");
+  };
 
-    const terms = search.toLowerCase().split(/\s+/);
-
-    return terms.every((term) => {
-      const inName = product.name.toLowerCase().includes(term);
-      const inModel = product.model.toLowerCase().includes(term);
-      const inCars = product.cars.some((car) =>
-        car.toLowerCase().includes(term)
-      );
-      return inName || inModel || inCars;
-    });
+  const filteredProducts = products?.filter((product) => {
+    const term = localSearch.toLowerCase();
+    return (
+      !term ||
+      product.name.toLowerCase().includes(term) ||
+      product.model.toLowerCase().includes(term) ||
+      product.cars.some((car) => car.toLowerCase().includes(term))
+    );
   });
 
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("/api/products");
-        const data: Product[] = await res.json();
-        setProducts(data);
-      } catch (error) {
-        console.error("Erro ao buscar produtos:", error);
-      }
-    }
-    fetchProducts();
-  }, []);
+    setLocalSearch(search ?? "");
+  }, [search]);
 
-  return { search, handleSearch, filteredProducts };
+  return {
+    search,
+    onSubmit,
+    isLoading,
+    filteredProducts,
+    methods,
+    handleSearch,
+  };
 };

@@ -1,4 +1,6 @@
 import { ProductsModel } from "./products.model";
+import { schema } from "./products.schema";
+import * as yup from "yup";
 
 interface Product {
   name: string;
@@ -18,4 +20,6 @@ interface Product {
 
 type ProductsViewProps = ReturnType<typeof ProductsModel>;
 
-export type { Product, ProductsViewProps };
+type FormData = yup.InferType<typeof schema>;
+
+export type { Product, ProductsViewProps, FormData };
