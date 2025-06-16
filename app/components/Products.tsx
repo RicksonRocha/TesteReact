@@ -1,21 +1,9 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/16/solid";
-import * as yup from "yup";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useQueryState } from "nuqs";
-import { useForm } from "react-hook-form";
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import Image from "next/image";
 
-const schema = yup.object({
-  search: yup.string().optional(),
-});
-
-type FormData = yup.InferType<typeof schema>;
-
-type ProductType = {
+interface Product {
   name: string;
   image: string;
   model: string;
@@ -29,139 +17,130 @@ type ProductType = {
   rollingResistance: string;
   wetGrip: string;
   cars: string[];
-};
+}
 
 export default function Products() {
-  const [search, setSearch] = useQueryState("search");
-  const { register, handleSubmit, setValue } = useForm<FormData>({
-    resolver: yupResolver(schema),
-    defaultValues: { search: search ?? "" },
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState<string>("");
 
   useEffect(() => {
-    if (search) {
-      setValue("search", search);
+    async function fetchProducts() {
+      try {
+        const res = await fetch("/api/products");
+        const data: Product[] = await res.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Erro ao buscar produtos:", error);
+      }
     }
-  }, [search, setValue]);
+    fetchProducts();
+  }, []);
 
-  const { data: products, isLoading } = useQuery<ProductType[]>({
-    queryKey: ["products"],
-    queryFn: () => fetch("/api/products").then((res) => res.json()),
+  const filteredProducts = products.filter((product) => {
+    if (!search.trim()) return true;
+
+    const terms = search.toLowerCase().split(/\s+/);
+
+    return terms.every((term) => {
+      const inName = product.name.toLowerCase().includes(term);
+      const inModel = product.model.toLowerCase().includes(term);
+      const inCars = product.cars.some((car) =>
+        car.toLowerCase().includes(term)
+      );
+      return inName || inModel || inCars;
+    });
   });
 
-  const filteredProducts = products?.filter(
-    (product) =>
-      !search || product.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const onSubmit = (data: FormData) => {
-    setSearch(data.search ?? "");
-  };
-
   return (
-    <div className="w-full flex justify-center flex-col h-full">
+    <div className="w-full flex justify-center items-center flex-col h-full px-4 py-6">
       <form
-        onSubmit={handleSubmit(onSubmit)}
         className="w-full md:w-1/2 mx-auto mb-6"
+        onSubmit={(e) => e.preventDefault()}
       >
-        <div className="border-gray-500 w-1/2 mx-auto mb-4">
+        <div className="w-full mb-4">
           <label
             htmlFor="search"
-            className="block text-sm/6 font-medium text-gray-900"
+            className="block text-sm font-medium text-gray-900"
           >
             Pesquisa
           </label>
-          <div className="mt-2 grid grid-cols-1">
+          <div className="mt-2 relative">
             <input
               id="search"
               type="search"
               placeholder="Pesquisar produtos"
-              className="col-start-1 row-start-1 block w-full rounded-md bg-white py-1.5 pl-10 pr-3 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:pl-9 sm:text-sm/6"
-              {...register("search")}
+              className="block w-full rounded-md bg-white py-1.5 pl-10 pr-3 text-base text-gray-900 outline outline-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-600 sm:text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              data-testid="search-input"
             />
-            {/* <MagnifyingGlassIcon
+            <MagnifyingGlassIcon
               aria-hidden="true"
-              className="pointer-events-none col-start-1 row-start-1 ml-3 size-5 self-center text-gray-400 sm:size-4"
-            /> */}
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400"
+            />
           </div>
         </div>
       </form>
 
-      <div className="mb-4 border-b border-1"></div>
-      <div className="flex flex-col gap-6">
-        {isLoading ? (
-          Array.from({ length: 6 }).map((_, idx) => (
+      <div className="mb-4 border-b border-gray-300 w-full max-w-3xl" />
+
+      <div
+        className="flex flex-col items-center gap-6 w-full max-w-3xl"
+        data-testid="products"
+      >
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((product, idx) => (
             <div
               key={idx}
-              className="flex items-center gap-4 border rounded-md p-4 animate-pulse"
+              data-testid="product"
+              className="bg-white shadow-md rounded-3xl px-4 py-4 w-full flex flex-col md:flex-row items-center md:items-stretch"
             >
-              <div className="w-[120px] h-[120px] bg-gray-200 rounded-md" />
-              <div className="flex-1 space-y-3">
-                <div className="w-3/4 h-4 bg-gray-200 rounded" />
-                <div className="w-1/2 h-4 bg-gray-200 rounded" />
-                <div className="w-full h-4 bg-gray-200 rounded" />
+              <div className="flex flex-col items-center text-center">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-32 h-auto object-contain mb-2"
+                />
+                <h3 className="font-bold text-sm">{product.model}</h3>
+              </div>
+
+              <div className="w-1 bg-black mx-4 self-stretch" />
+
+              <div className="flex-1 mt-4 md:mt-0 w-full">
+                <h2 className="text-xl font-bold text-center md:text-left mb-4">
+                  {product.name}
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm text-black">
+                  <div>
+                    <span className="text-gray-500">Durabilidade</span>
+                    <h5 className="font-bold">{product.treadwear}</h5>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Tração</span>
+                    <h5 className="font-bold">{product.traction}</h5>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Temperatura</span>
+                    <h5 className="font-bold">{product.temperature}</h5>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Velocidade</span>
+                    <h5 className="font-bold">{product.speedRating}</h5>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Carga</span>
+                    <h5 className="font-bold">{product.loadIndex}</h5>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Desenho</span>
+                    <h5 className="font-bold">{product.pattern}</h5>
+                  </div>
+                </div>
               </div>
             </div>
           ))
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredProducts?.map((product, idx) => (
-              <div key={idx} className="bg-white shadow-md rounded-md p-4 flex">
-                <div>
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-40 h-auto object-contain mr-4"
-                  />
-                  <h3 className="font-bold text-md text-center">
-                    {product.model}
-                  </h3>
-                </div>
-                <div className="w-1 bg-black mx-4" />
-                <div className="flex flex-col justify-between">
-                  <h2 className="font-bold text-lg mb-2">{product.name}</h2>
-
-                  <div className="grid grid-cols-3 gap-x-6 text-sm text-black mb-2">
-                    <div>
-                      <span className="text-gray-500">Durabilidade</span>
-                      <br />
-                      <h5 className="font-bold">{product.treadwear}</h5>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Tração</span>
-                      <br />
-                      <h5 className="font-bold">{product.traction}</h5>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Temperatura</span>
-                      <br />
-                      <h5 className="font-bold">{product.temperature}</h5>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-x-6 text-sm text-black mb-2">
-                    <div>
-                      <span className="text-gray-500">
-                        Índice de velocidade
-                      </span>
-                      <br />
-                      <h5 className="font-bold">{product.speedRating}</h5>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Capacidade de Carga</span>
-                      <br />
-                      <h5 className="font-bold">{product.loadIndex}</h5>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Desenho</span>
-                      <br />
-                      <h5 className="font-bold">{product.pattern}</h5>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-center text-gray-600">Nenhum produto encontrado</p>
         )}
       </div>
     </div>
